@@ -13,6 +13,9 @@ from perplexity.config import (
     ENDPOINT_AUTH_SIGNIN,
     ENDPOINT_SSE_ASK,
     ENDPOINT_UPLOAD_URL,
+    MODEL_MAPPINGS,
+    SEARCH_MODES,
+    SEARCH_SOURCES,
 )
 from .emailnator import Emailnator
 
@@ -52,7 +55,8 @@ class Client(AsyncMixin):
         self.copilot = 0 if not cookies else float("inf")
         self.file_upload = 0 if not cookies else float("inf")
         self.signin_regex = re.compile(
-            r'"(https://www\.perplexity\.ai/api/auth/callback/email\?' r'callbackUrl=.*?)"'
+            r'"(https://www\.perplexity\.ai/api/auth/callback/email\?'
+            r'callbackUrl=.*?)"'
         )
         self.timestamp = format(random.getrandbits(32), "08x")
         await self.session.get(ENDPOINT_AUTH_SESSION)
@@ -69,9 +73,9 @@ class Client(AsyncMixin):
                     ENDPOINT_AUTH_SIGNIN,
                     data={
                         "email": emailnator_cli.email,
-                        "csrfToken": self.session.cookies.get_dict()["next-auth.csrf-token"].split(
-                            "%"
-                        )[0],
+                        "csrfToken": self.session.cookies.get_dict()[
+                            "next-auth.csrf-token"
+                        ].split("%")[0],
                         "callbackUrl": "https://www.perplexity.ai/",
                         "json": "true",
                     },
@@ -118,40 +122,15 @@ class Client(AsyncMixin):
         """
         Query function
         """
-        assert mode in [
-            "auto",
-            "pro",
-            "reasoning",
-            "deep research",
-        ], 'Search modes -> ["auto", "pro", "reasoning", "deep research"]'
-        assert (
-            model
-            in {
-                "auto": [None],
-                "pro": [
-                    None,
-                    "sonar",
-                    "gpt-5.2",
-                    "claude-4.5-sonnet",
-                    "grok-4.1",
-                ],
-                "reasoning": [
-                    None,
-                    "gpt-5.2-thinking",
-                    "claude-4.5-sonnet-thinking",
-                    "gemini-3.0-pro",
-                    "kimi-k2-thinking",
-                    "grok-4.1-reasoning",
-                ],
-                "deep research": [None],
-                "copilot": [None, "gemini-3.0-pro", "kimi-k2-thinking"],
-            }[mode]
-            if self.own
-            else True
-        ), "Invalid model for selected mode"
-        assert all(
-            [source in ("web", "scholar", "social") for source in sources]
-        ), 'Sources -> ["web", "scholar", "social"]'
+        assert mode in SEARCH_MODES, (
+            'Search modes -> ["auto", "pro", "reasoning", "deep research"]'
+        )
+        assert model in MODEL_MAPPINGS[mode] if self.own else model is None, (
+            "Invalid model for selected mode"
+        )
+        assert all([source in SEARCH_SOURCES for source in sources]), (
+            'Sources -> ["web", "scholar", "social"]'
+        )
         assert (
             self.copilot > 0 if mode in ["pro", "reasoning", "deep research"] else True
         ), "You have used all of your enhanced (pro) queries"
@@ -161,7 +140,9 @@ class Client(AsyncMixin):
         )
 
         self.copilot = (
-            self.copilot - 1 if mode in ["pro", "reasoning", "deep research"] else self.copilot
+            self.copilot - 1
+            if mode in ["pro", "reasoning", "deep research"]
+            else self.copilot
         )
         self.file_upload = self.file_upload - len(files) if files else self.file_upload
 
@@ -193,7 +174,9 @@ class Client(AsyncMixin):
                 data=file,
             )
 
-            upload_resp = await self.session.post(file_upload_info["s3_bucket_url"], multipart=mp)
+            upload_resp = await self.session.post(
+                file_upload_info["s3_bucket_url"], multipart=mp
+            )
 
             if not upload_resp.ok:
                 raise Exception("File upload error", upload_resp)
@@ -213,7 +196,9 @@ class Client(AsyncMixin):
             "query_str": query,
             "params": {
                 "attachments": (
-                    uploaded_files + follow_up["attachments"] if follow_up else uploaded_files
+                    uploaded_files + follow_up["attachments"]
+                    if follow_up
+                    else uploaded_files
                 ),
                 "frontend_context_uuid": str(uuid4()),
                 "frontend_uuid": str(uuid4()),
@@ -221,25 +206,7 @@ class Client(AsyncMixin):
                 "language": language,
                 "last_backend_uuid": (follow_up["backend_uuid"] if follow_up else None),
                 "mode": "concise" if mode == "auto" else "copilot",
-                "model_preference": {
-                    "auto": {None: "turbo"},
-                    "pro": {
-                        None: "pplx_pro",
-                        "sonar": "experimental",
-                        "gpt-5.2": "gpt52",
-                        "claude-4.5-sonnet": "claude45sonnet",
-                        "grok-4.1": "grok41nonreasoning",
-                    },
-                    "reasoning": {
-                        None: "pplx_reasoning",
-                        "gpt-5.2-thinking": "gpt52_thinking",
-                        "claude-4.5-sonnet-thinking": "claude45sonnetthinking",
-                        "gemini-3.0-pro": "gemini30pro",
-                        "kimi-k2-thinking": "kimik2thinking",
-                        "grok-4.1-reasoning": "grok41reasoning",
-                    },
-                    "deep research": {None: "pplx_alpha"},
-                }[mode][model],
+                "model_preference": MODEL_MAPPINGS[mode][model],
                 "source": "default",
                 "sources": sources,
                 "version": "2.18",
@@ -255,7 +222,9 @@ class Client(AsyncMixin):
 
                 if content.startswith("event: message\r\n"):
                     try:
-                        content_json = json.loads(content[len("event: message\r\ndata: ") :])
+                        content_json = json.loads(
+                            content[len("event: message\r\ndata: ") :]
+                        )
 
                         # Parse the nested 'text' field if it exists
                         if "text" in content_json and content_json["text"]:
@@ -267,12 +236,14 @@ class Client(AsyncMixin):
                                         if step.get("step_type") == "FINAL":
                                             final_content = step.get("content", {})
                                             if "answer" in final_content:
-                                                answer_data = json.loads(final_content["answer"])
-                                                content_json["answer"] = answer_data.get(
-                                                    "answer", ""
+                                                answer_data = json.loads(
+                                                    final_content["answer"]
                                                 )
-                                                content_json["chunks"] = answer_data.get(
-                                                    "chunks", []
+                                                content_json["answer"] = (
+                                                    answer_data.get("answer", "")
+                                                )
+                                                content_json["chunks"] = (
+                                                    answer_data.get("chunks", [])
                                                 )
                                                 break
                                 content_json["text"] = text_parsed
@@ -295,7 +266,9 @@ class Client(AsyncMixin):
 
             if content.startswith("event: message\r\n"):
                 try:
-                    content_json = json.loads(content[len("event: message\r\ndata: ") :])
+                    content_json = json.loads(
+                        content[len("event: message\r\ndata: ") :]
+                    )
 
                     # Parse the nested 'text' field if it exists
                     if "text" in content_json and content_json["text"]:
@@ -307,9 +280,15 @@ class Client(AsyncMixin):
                                     if step.get("step_type") == "FINAL":
                                         final_content = step.get("content", {})
                                         if "answer" in final_content:
-                                            answer_data = json.loads(final_content["answer"])
-                                            content_json["answer"] = answer_data.get("answer", "")
-                                            content_json["chunks"] = answer_data.get("chunks", [])
+                                            answer_data = json.loads(
+                                                final_content["answer"]
+                                            )
+                                            content_json["answer"] = answer_data.get(
+                                                "answer", ""
+                                            )
+                                            content_json["chunks"] = answer_data.get(
+                                                "chunks", []
+                                            )
                                             break
                             content_json["text"] = text_parsed
                         except (json.JSONDecodeError, TypeError, KeyError):

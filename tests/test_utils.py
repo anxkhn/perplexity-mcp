@@ -26,6 +26,16 @@ def test_validate_search_params_requires_own_account() -> None:
         validate_search_params("pro", "sonar", ["web"], own_account=False)
 
 
+def test_validate_search_params_accepts_new_alias_and_backend_id() -> None:
+    print("console.log -> validating new model aliases and backend ids")
+    validate_search_params(
+        "reasoning", "claude-4.6-sonnet-thinking", ["web"], own_account=True
+    )
+    validate_search_params(
+        "reasoning", "claude46sonnetthinking", ["web"], own_account=True
+    )
+
+
 def test_retry_with_backoff_eventually_succeeds(monkeypatch) -> None:
     print("console.log -> exercising retry_with_backoff decorator")
     sleep_calls = []

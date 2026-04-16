@@ -9,6 +9,9 @@ from perplexity.logger import setup_logger
 
 logger = setup_logger("mcp")
 
+DEFAULT_MODE = os.environ.get("PERPLEXITY_MCP_MODE", "reasoning")
+DEFAULT_MODEL = os.environ.get("PERPLEXITY_MCP_MODEL", "claude-4.6-sonnet-thinking")
+
 mcp = FastMCP(
     "perplexity",
     host=os.environ.get("MCP_HOST", "127.0.0.1"),
@@ -28,6 +31,10 @@ def perplexity_ask(query: str) -> str:
     - Returns plain text only (no citations, images, or structured results).
     - Answers may not reflect the very latest real-time information.
     """
+    if client.own:
+        return client.search(query, mode=DEFAULT_MODE, model=DEFAULT_MODEL).get(
+            "answer", ""
+        )
     return client.search(query, mode="auto").get("answer", "")
 
 
@@ -59,7 +66,7 @@ def perplexity_reason(query: str) -> str:
     - Does not support follow-up context, file uploads, or source filtering.
     - Returns plain text only (no citations, images, or structured results).
     """
-    return client.search(query, mode="reasoning").get("answer", "")
+    return client.search(query, mode="reasoning", model=DEFAULT_MODEL).get("answer", "")
 
 
 def perplexity_search(query: str) -> str:

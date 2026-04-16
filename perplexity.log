@@ -24,3 +24,26 @@
 2025-12-03 20:54:53,070 - perplexity.utils - WARNING - Attempt 1/3 failed: Transient error. Retrying in 0.98s...
 2025-12-03 21:20:01,481 - perplexity.utils - WARNING - Attempt 1/3 failed: temporary failure. Retrying in 0.41s...
 2025-12-03 21:37:06,303 - perplexity.utils - WARNING - Attempt 1/3 failed: temporary failure. Retrying in 0.68s...
+2026-04-16 12:59:43,773 - mcp - INFO - Authenticated — all 4 tools available.
+2026-04-16 12:59:43,801 - mcp.server.lowlevel.server - INFO - Processing request of type ListToolsRequest
+2026-04-16 12:59:57,289 - mcp - INFO - Authenticated — all 4 tools available.
+2026-04-16 12:59:57,300 - mcp.server.lowlevel.server - INFO - Processing request of type ListToolsRequest
+2026-04-16 13:00:03,372 - mcp.server.lowlevel.server - INFO - Processing request of type CallToolRequest
+2026-04-16 13:08:22,549 - mcp - INFO - Authenticated — all 4 tools available.
+2026-04-16 13:08:22,564 - mcp.server.lowlevel.server - INFO - Processing request of type ListToolsRequest
+2026-04-16 13:08:45,114 - perplexity.utils - WARNING - Attempt 1/3 failed: temporary failure. Retrying in 0.36s...
+2026-04-16 13:09:04,691 - mcp - INFO - Authenticated — all 4 tools available.
+2026-04-16 13:09:04,705 - mcp.server.lowlevel.server - INFO - Processing request of type ListToolsRequest
+2026-04-16 13:09:13,340 - mcp.server.lowlevel.server - INFO - Processing request of type CallToolRequest
+2026-04-16 13:14:24,976 - mcp - INFO - Authenticated — all 4 tools available.
+2026-04-16 13:14:24,988 - mcp.server.lowlevel.server - INFO - Processing request of type ListToolsRequest
+2026-04-16 13:14:26,674 - mcp.server.lowlevel.server - INFO - Processing request of type ListResourcesRequest
+2026-04-16 13:14:26,676 - mcp.server.lowlevel.server - INFO - Processing request of type ListPromptsRequest
+2026-04-16 13:16:24,572 - mcp.server.lowlevel.server - INFO - Processing request of type CallToolRequest
+2026-04-16 13:23:39,950 - mcp.server.lowlevel.server - INFO - Processing request of type CallToolRequest
+2026-04-16 13:32:28,297 - mcp.server.lowlevel.server - INFO - Processing request of type CallToolRequest
+2026-04-16 13:32:39,439 - mcp.server.lowlevel.server - INFO - Processing request of type CallToolRequest
+2026-04-16 13:32:54,698 - mcp.server.lowlevel.server - INFO - Processing request of type CallToolRequest
+2026-04-16 13:33:10,835 - mcp.server.lowlevel.server - INFO - Processing request of type CallToolRequest
+2026-04-16 13:33:24,692 - mcp.server.lowlevel.server - INFO - Processing request of type CallToolRequest
+2026-04-16 13:33:32,073 - mcp.server.lowlevel.server - INFO - Processing request of type CallToolRequest

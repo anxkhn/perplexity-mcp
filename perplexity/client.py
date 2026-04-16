@@ -20,6 +20,9 @@ from .config import (
     ENDPOINT_AUTH_SIGNIN,
     ENDPOINT_SSE_ASK,
     ENDPOINT_UPLOAD_URL,
+    MODEL_MAPPINGS,
+    SEARCH_MODES,
+    SEARCH_SOURCES,
 )
 from .emailnator import Emailnator
 
@@ -44,7 +47,8 @@ class Client:
 
         # Regular expression for extracting sign-in links
         self.signin_regex = re.compile(
-            r'"(https://www\\.perplexity\\.ai/api/auth/callback/email\\?' r'callbackUrl=.*?)"'
+            r'"(https://www\\.perplexity\\.ai/api/auth/callback/email\\?'
+            r'callbackUrl=.*?)"'
         )
 
         # Unique timestamp for session identification
@@ -67,9 +71,9 @@ class Client:
                     ENDPOINT_AUTH_SIGNIN,
                     data={
                         "email": emailnator_cli.email,
-                        "csrfToken": self.session.cookies.get_dict()["next-auth.csrf-token"].split(
-                            "%"
-                        )[0],
+                        "csrfToken": self.session.cookies.get_dict()[
+                            "next-auth.csrf-token"
+                        ].split("%")[0],
                         "callbackUrl": "https://www.perplexity.ai/",
                         "json": "true",
                     },
@@ -93,7 +97,9 @@ class Client:
 
         # Extract the sign-in link from the email
         msg = emailnator_cli.get(func=lambda x: x["subject"] == "Sign in to Perplexity")
-        new_account_link = self.signin_regex.search(emailnator_cli.open(msg["messageID"])).group(1)
+        new_account_link = self.signin_regex.search(
+            emailnator_cli.open(msg["messageID"])
+        ).group(1)
 
         # Complete the account creation process
         self.session.get(new_account_link)
@@ -131,47 +137,23 @@ class Client:
         - incognito: Whether to enable incognito mode.
         """
         # Validate input parameters
-        assert mode in [
-            "auto",
-            "pro",
-            "reasoning",
-            "deep research",
-        ], "Invalid search mode."
-        assert (
-            model
-            in {
-                "auto": [None],
-                "pro": [
-                    None,
-                    "sonar",
-                    "gpt-5.2",
-                    "claude-4.5-sonnet",
-                    "grok-4.1",
-                ],
-                "reasoning": [
-                    None,
-                    "gpt-5.2-thinking",
-                    "claude-4.5-sonnet-thinking",
-                    "gemini-3.0-pro",
-                    "kimi-k2-thinking",
-                    "grok-4.1-reasoning",
-                ],
-                "deep research": [None],
-            }[mode]
-            if self.own
-            else True
-        ), "Invalid model for the selected mode."
-        assert all(
-            [source in ("web", "scholar", "social") for source in sources]
-        ), "Invalid sources."
+        assert mode in SEARCH_MODES, "Invalid search mode."
+        assert model in MODEL_MAPPINGS[mode] if self.own else model is None, (
+            "Invalid model for the selected mode."
+        )
+        assert all([source in SEARCH_SOURCES for source in sources]), "Invalid sources."
         assert (
             self.copilot > 0 if mode in ["pro", "reasoning", "deep research"] else True
         ), "No remaining pro queries."
-        assert self.file_upload - len(files) >= 0 if files else True, "File upload limit exceeded."
+        assert self.file_upload - len(files) >= 0 if files else True, (
+            "File upload limit exceeded."
+        )
 
         # Update query and file upload counters
         self.copilot = (
-            self.copilot - 1 if mode in ["pro", "reasoning", "deep research"] else self.copilot
+            self.copilot - 1
+            if mode in ["pro", "reasoning", "deep research"]
+            else self.copilot
         )
         self.file_upload = self.file_upload - len(files) if files else self.file_upload
 
@@ -204,7 +186,9 @@ class Client:
                 data=file,
             )
 
-            upload_resp = self.session.post(file_upload_info["s3_bucket_url"], multipart=mp)
+            upload_resp = self.session.post(
+                file_upload_info["s3_bucket_url"], multipart=mp
+            )
 
             if not upload_resp.ok:
                 raise Exception("File upload error", upload_resp)
@@ -226,7 +210,9 @@ class Client:
             "query_str": query,
             "params": {
                 "attachments": (
-                    uploaded_files + follow_up["attachments"] if follow_up else uploaded_files
+                    uploaded_files + follow_up["attachments"]
+                    if follow_up
+                    else uploaded_files
                 ),
                 "frontend_context_uuid": str(uuid4()),
                 "frontend_uuid": str(uuid4()),
@@ -234,25 +220,7 @@ class Client:
                 "language": language,
                 "last_backend_uuid": (follow_up["backend_uuid"] if follow_up else None),
                 "mode": "concise" if mode == "auto" else "copilot",
-                "model_preference": {
-                    "auto": {None: "turbo"},
-                    "pro": {
-                        None: "pplx_pro",
-                        "sonar": "experimental",
-                        "gpt-5.2": "gpt52",
-                        "claude-4.5-sonnet": "claude45sonnet",
-                        "grok-4.1": "grok41nonreasoning",
-                    },
-                    "reasoning": {
-                        None: "pplx_reasoning",
-                        "gpt-5.2-thinking": "gpt52_thinking",
-                        "claude-4.5-sonnet-thinking": "claude45sonnetthinking",
-                        "gemini-3.0-pro": "gemini30pro",
-                        "kimi-k2-thinking": "kimik2thinking",
-                        "grok-4.1-reasoning": "grok41reasoning",
-                    },
-                    "deep research": {None: "pplx_alpha"},
-                }[mode][model],
+                "model_preference": MODEL_MAPPINGS[mode][model],
                 "source": "default",
                 "sources": sources,
                 "version": "2.18",
@@ -272,7 +240,9 @@ class Client:
 
                 if content.startswith("event: message\r\n"):
                     try:
-                        content_json = json.loads(content[len("event: message\r\ndata: ") :])
+                        content_json = json.loads(
+                            content[len("event: message\r\ndata: ") :]
+                        )
 
                         # Parse the nested 'text' field if it exists
                         if "text" in content_json and content_json["text"]:
@@ -284,12 +254,14 @@ class Client:
                                         if step.get("step_type") == "FINAL":
                                             final_content = step.get("content", {})
                                             if "answer" in final_content:
-                                                answer_data = json.loads(final_content["answer"])
-                                                content_json["answer"] = answer_data.get(
-                                                    "answer", ""
+                                                answer_data = json.loads(
+                                                    final_content["answer"]
                                                 )
-                                                content_json["chunks"] = answer_data.get(
-                                                    "chunks", []
+                                                content_json["answer"] = (
+                                                    answer_data.get("answer", "")
+                                                )
+                                                content_json["chunks"] = (
+                                                    answer_data.get("chunks", [])
                                                 )
                                                 break
                                 content_json["text"] = text_parsed
@@ -312,7 +284,9 @@ class Client:
 
             if content.startswith("event: message\r\n"):
                 try:
-                    content_json = json.loads(content[len("event: message\r\ndata: ") :])
+                    content_json = json.loads(
+                        content[len("event: message\r\ndata: ") :]
+                    )
 
                     # Parse the nested 'text' field if it exists
                     if "text" in content_json and content_json["text"]:
@@ -324,9 +298,15 @@ class Client:
                                     if step.get("step_type") == "FINAL":
                                         final_content = step.get("content", {})
                                         if "answer" in final_content:
-                                            answer_data = json.loads(final_content["answer"])
-                                            content_json["answer"] = answer_data.get("answer", "")
-                                            content_json["chunks"] = answer_data.get("chunks", [])
+                                            answer_data = json.loads(
+                                                final_content["answer"]
+                                            )
+                                            content_json["answer"] = answer_data.get(
+                                                "answer", ""
+                                            )
+                                            content_json["chunks"] = answer_data.get(
+                                                "chunks", []
+                                            )
                                             break
                             content_json["text"] = text_parsed
                         except (json.JSONDecodeError, TypeError, KeyError):

@@ -17,4 +17,9 @@ def test_search_modes_and_models() -> None:
     pro_models = config.MODEL_MAPPINGS["pro"]
     assert None in pro_models
     assert "sonar" in pro_models
+    assert "claude-4.6-sonnet-thinking" in config.MODEL_MAPPINGS["reasoning"]
+    assert (
+        config.MODEL_MAPPINGS["reasoning"]["claude46sonnetthinking"]
+        == "claude46sonnetthinking"
+    )
     assert "deep research" in config.MODEL_MAPPINGS
