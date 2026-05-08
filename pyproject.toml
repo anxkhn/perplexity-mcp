@@ -3,16 +3,16 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "perplexity-api"
+name = "perplexity-mcp"
 version = "0.2.0"
-description = "Unofficial Python API for Perplexity.ai with account management"
+description = "Perplexity MCP server for coding agents using web auth cookies instead of API keys"
 readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
 authors = [
-    {name = "ESousa97", email = "contact@perplexity.ai"},
+    {name = "anxkhn"},
 ]
-keywords = ["perplexity", "ai", "api", "automation", "search"]
+keywords = ["perplexity", "mcp", "model-context-protocol", "coding-agents", "search"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -28,6 +28,7 @@ classifiers = [
 
 dependencies = [
     "curl_cffi>=0.5.7",
+    "mcp>=1.0.0",
     "websocket-client>=1.9.0; python_version >= '3.9'",
     "websocket-client>=1.5.0,<1.9.0; python_version < '3.9'",
 ]
@@ -38,9 +39,7 @@ driver = [
     "playwright>=1.40.0",
 ]
 async = []
-mcp = [
-    "mcp>=1.0.0",
-]
+mcp = []
 dev = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
@@ -51,16 +50,16 @@ dev = [
     "isort>=5.12.0",
 ]
 all = [
-    "perplexity-api[driver,mcp,dev]",
+    "perplexity-mcp[driver,dev]",
 ]
 
 [project.scripts]
 perplexity-mcp = "perplexity.mcp:main"
 
 [project.urls]
-Homepage = "https://github.com/ESousa97/perplexity-ai"
-Repository = "https://github.com/ESousa97/perplexity-ai"
-Issues = "https://github.com/ESousa97/perplexity-ai/issues"
+Homepage = "https://github.com/anxkhn/perplexity-mcp"
+Repository = "https://github.com/anxkhn/perplexity-mcp"
+Issues = "https://github.com/anxkhn/perplexity-mcp/issues"
 
 [tool.setuptools.packages.find]
 include = ["perplexity*", "perplexity_async*"]

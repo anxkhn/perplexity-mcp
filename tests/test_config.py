@@ -14,12 +14,20 @@ def test_api_endpoints_structure() -> None:
 def test_search_modes_and_models() -> None:
     print("console.log -> checking search modes and model mappings")
     assert set(config.SEARCH_MODES) >= {"auto", "pro", "reasoning"}
+    assert config.MODEL_CONFIG_SCHEMA == "v1"
+    assert config.DEFAULT_MODELS["search"] == "pplx_pro"
     pro_models = config.MODEL_MAPPINGS["pro"]
     assert None in pro_models
     assert "sonar" in pro_models
-    assert "claude-4.6-sonnet-thinking" in config.MODEL_MAPPINGS["reasoning"]
-    assert (
-        config.MODEL_MAPPINGS["reasoning"]["claude46sonnetthinking"]
-        == "claude46sonnetthinking"
-    )
+    assert "gpt-5.5" in pro_models
+    assert pro_models["gpt-5.5"] == "gpt55"
+    assert "claude-4.7-opus-thinking" in config.MODEL_MAPPINGS["reasoning"]
+    assert config.MODEL_MAPPINGS["reasoning"]["claude47opusthinking"] == "claude47opusthinking"
+    assert config.MODEL_CATALOG["kimik26thinking"]["label"] == "Kimi K2.6 Thinking"
+    assert config.DEFAULT_MODELS["browser_agent"] == "comet_browser_agent"
+    assert config.AGENTIC_RESEARCH_COMPARE_MODELS == [
+        "gpt55_thinking",
+        "claude47opusthinking",
+        "gemini31pro_high",
+    ]
     assert "deep research" in config.MODEL_MAPPINGS

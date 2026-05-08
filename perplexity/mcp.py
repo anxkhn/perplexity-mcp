@@ -5,12 +5,16 @@ import sys
 from mcp.server.fastmcp import FastMCP
 
 from perplexity import Client
+from perplexity.config import AGENTIC_RESEARCH_COMPARE_MODELS
 from perplexity.logger import setup_logger
 
 logger = setup_logger("mcp")
 
 DEFAULT_MODE = os.environ.get("PERPLEXITY_MCP_MODE", "reasoning")
-DEFAULT_MODEL = os.environ.get("PERPLEXITY_MCP_MODEL", "claude-4.6-sonnet-thinking")
+DEFAULT_MODEL = os.environ.get(
+    "PERPLEXITY_REASON_MODEL",
+    os.environ.get("PERPLEXITY_MCP_MODEL", AGENTIC_RESEARCH_COMPARE_MODELS[0]),
+)
 
 mcp = FastMCP(
     "perplexity",
@@ -23,7 +27,7 @@ def perplexity_ask(query: str) -> str:
     """Ask Perplexity a question and get a concise AI-generated answer.
 
     Uses Perplexity's auto mode, which selects the best approach for the query.
-    This is the default general-purpose tool — use it for factual questions,
+    This is the default general-purpose tool. Use it for factual questions,
     explanations, summaries, and most everyday queries.
 
     Limitations:
@@ -32,9 +36,7 @@ def perplexity_ask(query: str) -> str:
     - Answers may not reflect the very latest real-time information.
     """
     if client.own:
-        return client.search(query, mode=DEFAULT_MODE, model=DEFAULT_MODEL).get(
-            "answer", ""
-        )
+        return client.search(query, mode=DEFAULT_MODE, model=DEFAULT_MODEL).get("answer", "")
     return client.search(query, mode="auto").get("answer", "")
 
 
@@ -84,32 +86,48 @@ def perplexity_search(query: str) -> str:
     return client.search(query, mode="pro", sources=["web"]).get("answer", "")
 
 
-def main():
-    global client
-
+def load_cookies_from_env() -> dict:
+    """Load Perplexity auth cookies from supported environment variables."""
     cookies_env = os.environ.get("PERPLEXITY_COOKIES")
     if cookies_env:
         try:
-            cookies = json.loads(cookies_env)
+            return json.loads(cookies_env)
         except json.JSONDecodeError:
             sys.exit("ERROR: PERPLEXITY_COOKIES is not valid JSON.")
-    else:
-        cookies = {}
 
-    client = Client(cookies)
+    cookies = {}
+    session_token = os.environ.get("PERPLEXITY_SESSION_TOKEN")
+    csrf_token = os.environ.get("PERPLEXITY_CSRF_TOKEN")
+
+    if session_token:
+        cookies["next-auth.session-token"] = session_token
+        cookies["__Secure-next-auth.session-token"] = session_token
+
+    if csrf_token:
+        cookies["next-auth.csrf-token"] = csrf_token
+        cookies["__Host-next-auth.csrf-token"] = csrf_token
+
+    return cookies
+
+
+def main():
+    global client
+
+    client = Client(load_cookies_from_env())
 
     mcp.tool()(perplexity_ask)
 
     if client.own:
-        logger.info("Authenticated — all 4 tools available.")
+        logger.info("Authenticated - all 4 tools available.")
         mcp.tool()(perplexity_research)
         mcp.tool()(perplexity_reason)
         mcp.tool()(perplexity_search)
     else:
         logger.warning(
-            "No PERPLEXITY_COOKIES set — running anonymously. "
+            "No PERPLEXITY_COOKIES set - running anonymously. "
             "Only perplexity_ask is available. "
-            "Set PERPLEXITY_COOKIES to enable perplexity_search, perplexity_reason, and perplexity_research."
+            "Set PERPLEXITY_SESSION_TOKEN and PERPLEXITY_CSRF_TOKEN, or PERPLEXITY_COOKIES, "
+            "to enable perplexity_search, perplexity_reason, and perplexity_research."
         )
 
     transport = os.environ.get("MCP_TRANSPORT", "stdio")

@@ -1,8 +1,8 @@
 """
 Logging configuration for Perplexity AI library.
 
-This module provides centralized logging configuration with support for
-file and console output, structured logging, and configurable log levels.
+This module provides centralized logging configuration with console output,
+optional file output, structured logging, and configurable log levels.
 """
 
 import logging
@@ -16,7 +16,7 @@ from .config import LOG_FORMAT, LOG_LEVEL, LOG_FILE
 def setup_logger(
     name: str = "perplexity",
     level: Optional[str] = None,
-    log_file: Optional[str] = None,
+    log_file: Optional[str] = LOG_FILE,
     console: bool = True,
 ) -> logging.Logger:
     """
@@ -25,7 +25,7 @@ def setup_logger(
     Args:
         name: Logger name
         level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        log_file: Path to log file (optional)
+        log_file: Path to log file. File logging is disabled by default.
         console: Whether to output to console
 
     Returns:
@@ -46,13 +46,14 @@ def setup_logger(
 
     # Console handler
     if console:
-        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler = logging.StreamHandler(sys.stderr)
         console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
 
-    # File handler
-    if log_file or LOG_FILE:
-        file_path = Path(log_file or LOG_FILE)
+    # File logging is opt-in so library usage does not create files in the
+    # caller's current working directory.
+    if log_file:
+        file_path = Path(log_file)
         file_path.parent.mkdir(parents=True, exist_ok=True)
         file_handler = logging.FileHandler(file_path, encoding="utf-8")
         file_handler.setFormatter(formatter)

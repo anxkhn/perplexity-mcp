@@ -28,12 +28,10 @@ def test_validate_search_params_requires_own_account() -> None:
 
 def test_validate_search_params_accepts_new_alias_and_backend_id() -> None:
     print("console.log -> validating new model aliases and backend ids")
-    validate_search_params(
-        "reasoning", "claude-4.6-sonnet-thinking", ["web"], own_account=True
-    )
-    validate_search_params(
-        "reasoning", "claude46sonnetthinking", ["web"], own_account=True
-    )
+    validate_search_params("reasoning", "claude-4.7-opus-thinking", ["web"], own_account=True)
+    validate_search_params("reasoning", "claude47opusthinking", ["web"], own_account=True)
+    validate_search_params("reasoning", "gpt-5.5-thinking", ["web"], own_account=True)
+    validate_search_params("pro", "kimi-k2.6", ["web"], own_account=True)
 
 
 def test_retry_with_backoff_eventually_succeeds(monkeypatch) -> None:
