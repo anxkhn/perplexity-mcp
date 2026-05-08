@@ -4,7 +4,18 @@ import json
 
 import pytest
 
-from perplexity.mcp import load_cookies_from_env
+from perplexity.mcp import load_cookies_from_env, resolve_default_search_kwargs
+
+
+def test_default_mcp_mode_resolves_to_search() -> None:
+    print("console.log -> validating default MCP ask mode")
+    assert resolve_default_search_kwargs() == {"mode": "pro", "sources": ["web"]}
+
+
+def test_default_mcp_mode_supports_reasoning_and_research() -> None:
+    print("console.log -> validating explicit MCP ask modes")
+    assert resolve_default_search_kwargs("reasoning")["mode"] == "reasoning"
+    assert resolve_default_search_kwargs("deep research") == {"mode": "deep research"}
 
 
 def test_load_cookies_prefers_json_cookie_env(monkeypatch) -> None:

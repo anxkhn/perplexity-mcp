@@ -10,7 +10,7 @@ from perplexity.logger import setup_logger
 
 logger = setup_logger("mcp")
 
-DEFAULT_MODE = os.environ.get("PERPLEXITY_MCP_MODE", "reasoning")
+DEFAULT_MODE = os.environ.get("PERPLEXITY_MCP_MODE", "search")
 DEFAULT_MODEL = os.environ.get(
     "PERPLEXITY_REASON_MODEL",
     os.environ.get("PERPLEXITY_MCP_MODEL", AGENTIC_RESEARCH_COMPARE_MODELS[0]),
@@ -26,9 +26,9 @@ mcp = FastMCP(
 def perplexity_ask(query: str) -> str:
     """Ask Perplexity a question and get a concise AI-generated answer.
 
-    Uses Perplexity's auto mode, which selects the best approach for the query.
-    This is the default general-purpose tool. Use it for factual questions,
-    explanations, summaries, and most everyday queries.
+    Uses Perplexity search by default when authenticated, and auto mode when
+    anonymous. This is the default general-purpose tool. Use it for factual
+    questions, explanations, summaries, and most everyday queries.
 
     Limitations:
     - Does not support follow-up context, file uploads, or source filtering.
@@ -36,7 +36,7 @@ def perplexity_ask(query: str) -> str:
     - Answers may not reflect the very latest real-time information.
     """
     if client.own:
-        return client.search(query, mode=DEFAULT_MODE, model=DEFAULT_MODEL).get("answer", "")
+        return client.search(query, **resolve_default_search_kwargs()).get("answer", "")
     return client.search(query, mode="auto").get("answer", "")
 
 
@@ -45,7 +45,9 @@ def perplexity_research(query: str) -> str:
 
     Uses Perplexity's deep research mode, which autonomously breaks the query
     into sub-questions, searches broadly, and synthesizes a comprehensive report.
-    Best for complex topics requiring thorough investigation across many sources.
+    Only use this when the task genuinely needs deep synthesis across many
+    sources. Prefer asking smaller, focused research questions instead of one
+    huge query whenever possible.
 
     Limitations:
     - Significantly slower than other tools (may take 30–120 seconds).
@@ -75,8 +77,9 @@ def perplexity_search(query: str) -> str:
     """Search the web using Perplexity and get an AI-synthesized answer.
 
     Uses Perplexity's Pro mode with web sources, providing a more thorough
-    web search than auto mode. Best for current events, recent developments,
-    and queries where up-to-date web results are important.
+    web search than auto mode. This is the default authenticated path for
+    unspecified MCP asks. Best for current events, recent developments, and
+    queries where up-to-date web results are important.
 
     Limitations:
     - Only searches the web (no academic/scholar or social sources).
@@ -84,6 +87,27 @@ def perplexity_search(query: str) -> str:
     - Returns plain text only (no citations, images, or structured results).
     """
     return client.search(query, mode="pro", sources=["web"]).get("answer", "")
+
+
+def resolve_default_search_kwargs(mode: str = DEFAULT_MODE) -> dict:
+    """Resolve the configured default MCP ask mode to Client.search kwargs."""
+    normalized_mode = mode.strip().lower().replace("_", "-")
+
+    if normalized_mode in {"search", "pro"}:
+        return {"mode": "pro", "sources": ["web"]}
+
+    if normalized_mode == "reasoning":
+        return {"mode": "reasoning", "model": DEFAULT_MODEL}
+
+    if normalized_mode in {"research", "deep-research", "deep research"}:
+        return {"mode": "deep research"}
+
+    if normalized_mode == "auto":
+        return {"mode": "auto"}
+
+    raise ValueError(
+        "PERPLEXITY_MCP_MODE must be one of: search, pro, reasoning, deep research, auto"
+    )
 
 
 def load_cookies_from_env() -> dict:

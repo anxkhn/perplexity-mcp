@@ -40,10 +40,13 @@ Copy `.env.example` and fill in your own Perplexity cookies:
 ```bash
 export PERPLEXITY_SESSION_TOKEN="your-next-auth-session-token"
 export PERPLEXITY_CSRF_TOKEN="your-next-auth-csrf-token"
+export PERPLEXITY_MCP_MODE="search"
 export PERPLEXITY_REASON_MODEL="claude-4.6-sonnet-thinking"
 ```
 
-`PERPLEXITY_REASON_MODEL` controls the model used by the reasoning tool and authenticated default ask path. Any supported alias from `perplexity.config.MODEL_MAPPINGS` can be used.
+`PERPLEXITY_MCP_MODE` defaults to `search`, which maps to Perplexity Pro web search for authenticated requests. Set it to `reasoning` or `deep research` only when that behavior is explicitly desired.
+
+`PERPLEXITY_REASON_MODEL` controls the model used by the reasoning tool. Any supported alias from `perplexity.config.MODEL_MAPPINGS` can be used.
 
 You can alternatively provide full cookie JSON:
 
@@ -55,9 +58,9 @@ export PERPLEXITY_COOKIES='{"next-auth.session-token":"...","next-auth.csrf-toke
 
 | Tool | Mode | Auth Required | Description |
 |------|------|---------------|-------------|
-| `perplexity_ask` | `auto` or configured default | No | General question answering |
+| `perplexity_ask` | `search` when authenticated, `auto` when anonymous | No | General question answering |
 | `perplexity_reason` | `reasoning` | Yes | Reasoning with `PERPLEXITY_REASON_MODEL` |
-| `perplexity_research` | `deep research` | Yes | Long-form Perplexity research |
+| `perplexity_research` | `deep research` | Yes | Long-form Perplexity research. Use only when needed; prefer smaller focused questions over one huge research query. |
 | `perplexity_search` | `pro` + web sources | Yes | Web search with Pro mode |
 
 Without cookies, only `perplexity_ask` is registered.
@@ -76,6 +79,7 @@ Add this local MCP server to `~/.config/opencode/opencode.json`:
       "environment": {
         "PERPLEXITY_SESSION_TOKEN": "your-next-auth-session-token",
         "PERPLEXITY_CSRF_TOKEN": "your-next-auth-csrf-token",
+        "PERPLEXITY_MCP_MODE": "search",
         "PERPLEXITY_REASON_MODEL": "claude-4.6-sonnet-thinking"
       }
     }
@@ -95,6 +99,7 @@ opencode mcp list
 codex mcp add perplexity \
   --env PERPLEXITY_SESSION_TOKEN="$PERPLEXITY_SESSION_TOKEN" \
   --env PERPLEXITY_CSRF_TOKEN="$PERPLEXITY_CSRF_TOKEN" \
+  --env PERPLEXITY_MCP_MODE="search" \
   --env PERPLEXITY_REASON_MODEL="claude-4.6-sonnet-thinking" \
   -- perplexity-mcp
 ```
@@ -111,6 +116,7 @@ codex mcp list
 claude mcp add -s user perplexity \
   -e PERPLEXITY_SESSION_TOKEN="$PERPLEXITY_SESSION_TOKEN" \
   -e PERPLEXITY_CSRF_TOKEN="$PERPLEXITY_CSRF_TOKEN" \
+  -e PERPLEXITY_MCP_MODE="search" \
   -e PERPLEXITY_REASON_MODEL="claude-4.6-sonnet-thinking" \
   -- perplexity-mcp
 ```
