@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from curl_cffi import CurlMime, requests
 
+from perplexity.client import parse_sse_message
 from perplexity.config import (
     DEFAULT_HEADERS,
     ENDPOINT_AUTH_SESSION,
@@ -225,35 +226,11 @@ class Client(AsyncMixin):
                         content_json = json.loads(
                             content[len("event: message\r\ndata: ") :]
                         )
-
-                        # Parse the nested 'text' field if it exists
-                        if "text" in content_json and content_json["text"]:
-                            try:
-                                text_parsed = json.loads(content_json["text"])
-                                # Extract answer from FINAL step if available
-                                if isinstance(text_parsed, list):
-                                    for step in text_parsed:
-                                        if step.get("step_type") == "FINAL":
-                                            final_content = step.get("content", {})
-                                            if "answer" in final_content:
-                                                answer_data = json.loads(
-                                                    final_content["answer"]
-                                                )
-                                                content_json["answer"] = (
-                                                    answer_data.get("answer", "")
-                                                )
-                                                content_json["chunks"] = (
-                                                    answer_data.get("chunks", [])
-                                                )
-                                                break
-                                content_json["text"] = text_parsed
-                            except (json.JSONDecodeError, TypeError, KeyError):
-                                pass
-
-                        chunks.append(content_json)
-                        yield chunks[-1]
                     except (json.JSONDecodeError, KeyError):
                         continue
+
+                    chunks.append(parse_sse_message(content_json))
+                    yield chunks[-1]
 
                 elif content.startswith("event: end_of_stream\r\n"):
                     return
@@ -269,34 +246,16 @@ class Client(AsyncMixin):
                     content_json = json.loads(
                         content[len("event: message\r\ndata: ") :]
                     )
-
-                    # Parse the nested 'text' field if it exists
-                    if "text" in content_json and content_json["text"]:
-                        try:
-                            text_parsed = json.loads(content_json["text"])
-                            # Extract answer from FINAL step if available
-                            if isinstance(text_parsed, list):
-                                for step in text_parsed:
-                                    if step.get("step_type") == "FINAL":
-                                        final_content = step.get("content", {})
-                                        if "answer" in final_content:
-                                            answer_data = json.loads(
-                                                final_content["answer"]
-                                            )
-                                            content_json["answer"] = answer_data.get(
-                                                "answer", ""
-                                            )
-                                            content_json["chunks"] = answer_data.get(
-                                                "chunks", []
-                                            )
-                                            break
-                            content_json["text"] = text_parsed
-                        except (json.JSONDecodeError, TypeError, KeyError):
-                            pass
-
-                    chunks.append(content_json)
                 except (json.JSONDecodeError, KeyError):
                     continue
 
+                chunks.append(parse_sse_message(content_json))
+
             elif content.startswith("event: end_of_stream\r\n"):
-                return chunks[-1] if chunks else {}
+                break
+
+        for chunk in reversed(chunks):
+            if chunk.get("answer"):
+                return chunk
+
+        return chunks[-1] if chunks else {}

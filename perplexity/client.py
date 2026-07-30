@@ -27,6 +27,51 @@ from .config import (
 from .emailnator import Emailnator
 
 
+def parse_sse_message(content_json):
+    """
+    Normalizes an SSE payload so ``answer`` and ``chunks`` are always populated.
+
+    Perplexity returns the answer either inside the serialized ``text`` steps or,
+    for newer responses, only inside ``blocks``. Both shapes are handled here.
+    """
+    text = content_json.get("text")
+    if text:
+        try:
+            text_parsed = json.loads(text)
+        except (json.JSONDecodeError, TypeError):
+            text_parsed = None
+
+        if text_parsed is not None:
+            if isinstance(text_parsed, list):
+                for step in text_parsed:
+                    if not isinstance(step, dict) or step.get("step_type") != "FINAL":
+                        continue
+                    answer = step.get("content", {}).get("answer")
+                    if not answer:
+                        continue
+                    try:
+                        answer_data = json.loads(answer)
+                    except (json.JSONDecodeError, TypeError):
+                        continue
+                    content_json["answer"] = answer_data.get("answer", "")
+                    content_json["chunks"] = answer_data.get("chunks", [])
+                    break
+            content_json["text"] = text_parsed
+
+    if not content_json.get("answer"):
+        for block in content_json.get("blocks") or []:
+            if not isinstance(block, dict) or block.get("intended_usage") != "ask_text":
+                continue
+            markdown_block = block.get("markdown_block") or {}
+            answer = markdown_block.get("answer")
+            if answer:
+                content_json["answer"] = answer
+                content_json["chunks"] = markdown_block.get("chunks", [])
+                break
+
+    return content_json
+
+
 class Client:
     """
     A client for interacting with the Perplexity AI API.
@@ -47,8 +92,7 @@ class Client:
 
         # Regular expression for extracting sign-in links
         self.signin_regex = re.compile(
-            r'"(https://www\\.perplexity\\.ai/api/auth/callback/email\\?'
-            r'callbackUrl=.*?)"'
+            r'"(https://www\\.perplexity\\.ai/api/auth/callback/email\\?' r'callbackUrl=.*?)"'
         )
 
         # Unique timestamp for session identification
@@ -71,9 +115,9 @@ class Client:
                     ENDPOINT_AUTH_SIGNIN,
                     data={
                         "email": emailnator_cli.email,
-                        "csrfToken": self.session.cookies.get_dict()[
-                            "next-auth.csrf-token"
-                        ].split("%")[0],
+                        "csrfToken": self.session.cookies.get_dict()["next-auth.csrf-token"].split(
+                            "%"
+                        )[0],
                         "callbackUrl": "https://www.perplexity.ai/",
                         "json": "true",
                     },
@@ -97,9 +141,7 @@ class Client:
 
         # Extract the sign-in link from the email
         msg = emailnator_cli.get(func=lambda x: x["subject"] == "Sign in to Perplexity")
-        new_account_link = self.signin_regex.search(
-            emailnator_cli.open(msg["messageID"])
-        ).group(1)
+        new_account_link = self.signin_regex.search(emailnator_cli.open(msg["messageID"])).group(1)
 
         # Complete the account creation process
         self.session.get(new_account_link)
@@ -138,22 +180,18 @@ class Client:
         """
         # Validate input parameters
         assert mode in SEARCH_MODES, "Invalid search mode."
-        assert model in MODEL_MAPPINGS[mode] if self.own else model is None, (
-            "Invalid model for the selected mode."
-        )
+        assert (
+            model in MODEL_MAPPINGS[mode] if self.own else model is None
+        ), "Invalid model for the selected mode."
         assert all([source in SEARCH_SOURCES for source in sources]), "Invalid sources."
         assert (
             self.copilot > 0 if mode in ["pro", "reasoning", "deep research"] else True
         ), "No remaining pro queries."
-        assert self.file_upload - len(files) >= 0 if files else True, (
-            "File upload limit exceeded."
-        )
+        assert self.file_upload - len(files) >= 0 if files else True, "File upload limit exceeded."
 
         # Update query and file upload counters
         self.copilot = (
-            self.copilot - 1
-            if mode in ["pro", "reasoning", "deep research"]
-            else self.copilot
+            self.copilot - 1 if mode in ["pro", "reasoning", "deep research"] else self.copilot
         )
         self.file_upload = self.file_upload - len(files) if files else self.file_upload
 
@@ -186,9 +224,7 @@ class Client:
                 data=file,
             )
 
-            upload_resp = self.session.post(
-                file_upload_info["s3_bucket_url"], multipart=mp
-            )
+            upload_resp = self.session.post(file_upload_info["s3_bucket_url"], multipart=mp)
 
             if not upload_resp.ok:
                 raise Exception("File upload error", upload_resp)
@@ -210,9 +246,7 @@ class Client:
             "query_str": query,
             "params": {
                 "attachments": (
-                    uploaded_files + follow_up["attachments"]
-                    if follow_up
-                    else uploaded_files
+                    uploaded_files + follow_up["attachments"] if follow_up else uploaded_files
                 ),
                 "frontend_context_uuid": str(uuid4()),
                 "frontend_uuid": str(uuid4()),
@@ -240,38 +274,12 @@ class Client:
 
                 if content.startswith("event: message\r\n"):
                     try:
-                        content_json = json.loads(
-                            content[len("event: message\r\ndata: ") :]
-                        )
-
-                        # Parse the nested 'text' field if it exists
-                        if "text" in content_json and content_json["text"]:
-                            try:
-                                text_parsed = json.loads(content_json["text"])
-                                # Extract answer from FINAL step if available
-                                if isinstance(text_parsed, list):
-                                    for step in text_parsed:
-                                        if step.get("step_type") == "FINAL":
-                                            final_content = step.get("content", {})
-                                            if "answer" in final_content:
-                                                answer_data = json.loads(
-                                                    final_content["answer"]
-                                                )
-                                                content_json["answer"] = (
-                                                    answer_data.get("answer", "")
-                                                )
-                                                content_json["chunks"] = (
-                                                    answer_data.get("chunks", [])
-                                                )
-                                                break
-                                content_json["text"] = text_parsed
-                            except (json.JSONDecodeError, TypeError, KeyError):
-                                pass
-
-                        chunks.append(content_json)
-                        yield chunks[-1]
+                        content_json = json.loads(content[len("event: message\r\ndata: ") :])
                     except (json.JSONDecodeError, KeyError):
                         continue
+
+                    chunks.append(parse_sse_message(content_json))
+                    yield chunks[-1]
 
                 elif content.startswith("event: end_of_stream\r\n"):
                     return
@@ -284,37 +292,17 @@ class Client:
 
             if content.startswith("event: message\r\n"):
                 try:
-                    content_json = json.loads(
-                        content[len("event: message\r\ndata: ") :]
-                    )
-
-                    # Parse the nested 'text' field if it exists
-                    if "text" in content_json and content_json["text"]:
-                        try:
-                            text_parsed = json.loads(content_json["text"])
-                            # Extract answer from FINAL step if available
-                            if isinstance(text_parsed, list):
-                                for step in text_parsed:
-                                    if step.get("step_type") == "FINAL":
-                                        final_content = step.get("content", {})
-                                        if "answer" in final_content:
-                                            answer_data = json.loads(
-                                                final_content["answer"]
-                                            )
-                                            content_json["answer"] = answer_data.get(
-                                                "answer", ""
-                                            )
-                                            content_json["chunks"] = answer_data.get(
-                                                "chunks", []
-                                            )
-                                            break
-                            content_json["text"] = text_parsed
-                        except (json.JSONDecodeError, TypeError, KeyError):
-                            pass
-
-                    chunks.append(content_json)
+                    content_json = json.loads(content[len("event: message\r\ndata: ") :])
                 except (json.JSONDecodeError, KeyError):
                     continue
 
+                chunks.append(parse_sse_message(content_json))
+
             elif content.startswith("event: end_of_stream\r\n"):
-                return chunks[-1] if chunks else {}
+                break
+
+        for chunk in reversed(chunks):
+            if chunk.get("answer"):
+                return chunk
+
+        return chunks[-1] if chunks else {}
