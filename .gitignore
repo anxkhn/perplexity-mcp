@@ -21,3 +21,5 @@ dist/
 .env
 .env.*
 !.env.example
+
+.opencode/
