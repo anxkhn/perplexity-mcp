@@ -1,11 +1,12 @@
 import json
 import os
 import sys
+from importlib.metadata import version
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server import MCPServer
 
 from perplexity import Client
-from perplexity.config import AGENTIC_RESEARCH_COMPARE_MODELS
+from perplexity.config import DEFAULT_REASONING_MODEL
 from perplexity.logger import setup_logger
 
 logger = setup_logger("mcp")
@@ -13,14 +14,10 @@ logger = setup_logger("mcp")
 DEFAULT_MODE = os.environ.get("PERPLEXITY_MCP_MODE", "search")
 DEFAULT_MODEL = os.environ.get(
     "PERPLEXITY_REASON_MODEL",
-    os.environ.get("PERPLEXITY_MCP_MODEL", AGENTIC_RESEARCH_COMPARE_MODELS[0]),
+    os.environ.get("PERPLEXITY_MCP_MODEL", DEFAULT_REASONING_MODEL),
 )
 
-mcp = FastMCP(
-    "perplexity",
-    host=os.environ.get("MCP_HOST", "127.0.0.1"),
-    port=int(os.environ.get("MCP_PORT", "8000")),
-)
+mcp = MCPServer("perplexity", version=version("perplexity-mcp"))
 
 
 def perplexity_ask(query: str) -> str:
@@ -134,8 +131,34 @@ def load_cookies_from_env() -> dict:
     return cookies
 
 
+USAGE = """\
+usage: perplexity-mcp [--help] [--version]
+
+Perplexity MCP server. Runs on stdio by default; set MCP_TRANSPORT=http for
+streamable HTTP.
+
+Environment:
+  PERPLEXITY_SESSION_TOKEN  next-auth session token from perplexity.ai
+  PERPLEXITY_CSRF_TOKEN     next-auth CSRF token from perplexity.ai
+  PERPLEXITY_COOKIES        full cookie JSON (takes precedence over the above)
+  PERPLEXITY_MCP_MODE       search (default), reasoning, deep research, auto
+  PERPLEXITY_REASON_MODEL   model alias for perplexity_reason (default: {model})
+  MCP_TRANSPORT             stdio (default) or http
+  MCP_HOST                  HTTP bind host (default: 127.0.0.1)
+  MCP_PORT                  HTTP bind port (default: 8000)
+""".format(model=DEFAULT_REASONING_MODEL)
+
+
 def main():
     global client
+
+    if "--help" in sys.argv[1:] or "-h" in sys.argv[1:]:
+        print(USAGE, end="")
+        return
+
+    if "--version" in sys.argv[1:]:
+        print(version("perplexity-mcp"))
+        return
 
     client = Client(load_cookies_from_env())
 
@@ -161,7 +184,11 @@ def main():
     if transport == "stdio":
         mcp.run()
     else:
-        mcp.run(transport="streamable-http")
+        mcp.run(
+            transport="streamable-http",
+            host=os.environ.get("MCP_HOST", "127.0.0.1"),
+            port=int(os.environ.get("MCP_PORT", "8000")),
+        )
 
 
 if __name__ == "__main__":
