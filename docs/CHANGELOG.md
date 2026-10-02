@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1] - 2026-10-02
+
+- Share awaitable initialization across async clients and reuse the Labs model list.
+- Consolidate MCP refresh and model-selection logic, simplify refresh timing and default selection, and retain atomic cache writes.
+- Rewrite installation, account setup, model-selection, and refresh documentation.
+- Use package metadata as the dependency source for `requirements.txt`.
+
 ## [Unreleased] - 2026-10-02
 
 - Refresh the model catalog from Perplexity's current search, browser, and Computer pickers. Remove older and hidden model mappings.

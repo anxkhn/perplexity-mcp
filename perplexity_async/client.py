@@ -18,27 +18,7 @@ from perplexity.config import (
     SEARCH_MODES,
     SEARCH_SOURCES,
 )
-from .emailnator import Emailnator
-
-
-class AsyncMixin:
-    def __init__(self, *args, **kwargs):
-        self.__storedargs = args, kwargs
-        self.async_initialized = False
-
-    async def __ainit__(self, *args, **kwargs):
-        pass
-
-    async def __initobj(self):
-        assert not self.async_initialized
-        self.async_initialized = True
-
-        # pass the parameters to __ainit__ that passed to __init__
-        await self.__ainit__(*self.__storedargs[0], **self.__storedargs[1])
-        return self
-
-    def __await__(self):
-        return self.__initobj().__await__()
+from .emailnator import AsyncMixin, Emailnator
 
 
 class Client(AsyncMixin):

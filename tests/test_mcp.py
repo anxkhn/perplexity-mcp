@@ -86,3 +86,21 @@ def test_anonymous_ask_rejects_model_selection(monkeypatch):
     client.search.assert_called_once_with("question", mode="auto")
     with pytest.raises(ValueError, match="authentication"):
         server.perplexity_ask("question", model="gpt6_1_sol")
+
+
+@pytest.mark.parametrize("mode", ["search", "reasoning"])
+def test_ask_uses_environment_override_and_account_default(monkeypatch, mode):
+    client = SimpleNamespace(own=True, search=Mock(return_value={"answer": "answer"}))
+    models = Mock()
+    models.resolve_model.side_effect = lambda model=None: model or "gpt6_astra_thinking"
+    monkeypatch.setattr(server, "client", client, raising=False)
+    monkeypatch.setattr(server, "models", models, raising=False)
+    monkeypatch.setattr(
+        server, "resolve_default_search_kwargs", lambda: resolve_default_search_kwargs(mode)
+    )
+    monkeypatch.setattr(server, "DEFAULT_MODEL", None)
+    server.perplexity_ask("question")
+    assert client.search.call_args.kwargs["model"] == "gpt6_astra_thinking"
+    monkeypatch.setattr(server, "DEFAULT_MODEL", "gpt6_1_sol_thinking")
+    server.perplexity_ask("question")
+    assert client.search.call_args.kwargs["model"] == "gpt6_1_sol_thinking"

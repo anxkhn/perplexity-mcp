@@ -36,15 +36,12 @@ def perplexity_ask(query: str, model: str | None = None) -> str:
     - Answers may not reflect the very latest real-time information.
     """
     if client.own:
-        models.refresh()
         kwargs = resolve_default_search_kwargs()
         if model is not None:
             if kwargs["mode"] not in {"pro", "reasoning"}:
                 raise ValueError("Model selection requires Pro or reasoning mode")
             kwargs["model"] = model
-        if kwargs["mode"] in {"pro", "reasoning"}:
-            kwargs["model"] = models.resolve_model(kwargs.get("model", DEFAULT_MODEL))
-        return client.search(query, **kwargs).get("answer", "")
+        return search_answer(query, **kwargs)
     if model is not None:
         raise ValueError("Model selection requires authentication")
     return client.search(query, mode="auto").get("answer", "")
@@ -65,8 +62,7 @@ def perplexity_research(query: str) -> str:
     - Returns plain text only (no citations, images, or structured results).
     - Only one model is available in this mode (cannot select a specific model).
     """
-    models.refresh()
-    return client.search(query, mode="deep research").get("answer", "")
+    return search_answer(query, mode="deep research")
 
 
 def perplexity_reason(query: str, model: str | None = None) -> str:
@@ -84,9 +80,7 @@ def perplexity_reason(query: str, model: str | None = None) -> str:
     - Does not support follow-up context, file uploads, or source filtering.
     - Returns plain text only (no citations, images, or structured results).
     """
-    models.refresh()
-    selected = models.resolve_model(model if model is not None else DEFAULT_MODEL)
-    return client.search(query, mode="reasoning", model=selected).get("answer", "")
+    return search_answer(query, mode="reasoning", model=model)
 
 
 def perplexity_search(query: str, model: str | None = None) -> str:
@@ -104,9 +98,14 @@ def perplexity_search(query: str, model: str | None = None) -> str:
     - Does not support follow-up context or file uploads.
     - Returns plain text only (no citations, images, or structured results).
     """
+    return search_answer(query, mode="pro", model=model, sources=["web"])
+
+
+def search_answer(query: str, mode: str, model: str | None = None, **kwargs) -> str:
     models.refresh()
-    selected = models.resolve_model(model if model is not None else DEFAULT_MODEL)
-    return client.search(query, mode="pro", model=selected, sources=["web"]).get("answer", "")
+    if mode in {"pro", "reasoning"}:
+        kwargs["model"] = models.resolve_model(model if model is not None else DEFAULT_MODEL)
+    return client.search(query, mode=mode, **kwargs).get("answer", "")
 
 
 def perplexity_models(refresh: bool = False) -> dict:
@@ -131,7 +130,7 @@ def resolve_default_search_kwargs(mode: str = DEFAULT_MODE) -> dict:
         return {"mode": "pro", "sources": ["web"]}
 
     if normalized_mode == "reasoning":
-        return {"mode": "reasoning", "model": DEFAULT_MODEL}
+        return {"mode": "reasoning"}
 
     if normalized_mode in {"research", "deep-research", "deep research"}:
         return {"mode": "deep research"}

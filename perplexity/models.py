@@ -151,15 +151,15 @@ class ModelRegistry:
             entry["reasoning_model"]
             for entry in self.config["search_config"]
             if entry.get("reasoning_model") in self.available_search_models
+            and entry["reasoning_model"].startswith("gpt")
         ]
-        openai = [model for model in candidates if model.startswith("gpt")]
         if self.tier == "max":
-            astra = [model for model in openai if "astra" in model]
-            if astra:
-                return max(astra, key=lambda model: tuple(map(int, re.findall(r"\d+", model))))
-        if openai:
-            return max(openai, key=lambda model: tuple(map(int, re.findall(r"\d+", model))))
-        return None
+            candidates = [model for model in candidates if "astra" in model] or candidates
+        return max(
+            candidates,
+            key=lambda model: tuple(map(int, re.findall(r"\d+", model))),
+            default=None,
+        )
 
     def resolve_model(self, model=None):
         selected = model if model is not None else self.default_model
@@ -173,18 +173,13 @@ class ModelRegistry:
     def refresh(self, force=False):
         with self.lock:
             now = time.time()
-            if (
-                not force
-                and self.tier != "unknown"
-                and now - max(self.fetched_at, self.last_attempt) < REFRESH_SECONDS
-            ):
-                return
-            if (
-                not force
-                and self.tier == "unknown"
-                and self.last_attempt
-                and now - self.last_attempt < 60
-            ):
+            interval = 60 if self.tier == "unknown" else REFRESH_SECONDS
+            last_check = (
+                self.last_attempt
+                if self.tier == "unknown"
+                else max(self.fetched_at, self.last_attempt)
+            )
+            if not force and last_check and now - last_check < interval:
                 return
             self.last_attempt = now
             try:
@@ -228,16 +223,14 @@ class ModelRegistry:
                 logger.info("Model catalog refreshed: %s", self.changes)
             try:
                 self.cache_path.parent.mkdir(parents=True, exist_ok=True)
-                with tempfile.NamedTemporaryFile(
-                    mode="w", dir=self.cache_path.parent, delete=False
-                ) as file:
-                    temporary_path = Path(file.name)
-                    try:
+                fd, name = tempfile.mkstemp(dir=self.cache_path.parent)
+                temporary_path = Path(name)
+                try:
+                    with os.fdopen(fd, "w") as file:
                         json.dump({"fetched_at": now, "config": data}, file)
-                        file.close()
-                        os.replace(temporary_path, self.cache_path)
-                    finally:
-                        temporary_path.unlink(missing_ok=True)
+                    os.replace(temporary_path, self.cache_path)
+                finally:
+                    temporary_path.unlink(missing_ok=True)
             except OSError:
                 logger.warning("Could not save model cache; live models remain available")
 
