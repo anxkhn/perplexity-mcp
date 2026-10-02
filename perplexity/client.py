@@ -13,6 +13,7 @@ import random
 import mimetypes
 from uuid import uuid4
 from curl_cffi import CurlMime, requests
+from curl_cffi.requests.exceptions import RequestException
 
 from .config import (
     DEFAULT_HEADERS,
@@ -84,9 +85,13 @@ class Client:
             cookies=cookies,
             impersonate="chrome",
         )
+        account = cookies.get("__Host-pplx-last-active-account")
+        if account:
+            self.session.headers["x-pplx-account"] = account
 
         # Flags and counters for account and query management
         self.own = bool(cookies)  # Indicates if the client uses its own account
+        self.model_mappings = MODEL_MAPPINGS
         self.copilot = 0 if not cookies else float("inf")  # Remaining pro queries
         self.file_upload = 0 if not cookies else float("inf")  # Remaining file uploads
 
@@ -99,7 +104,11 @@ class Client:
         self.timestamp = format(random.getrandbits(32), "08x")
 
         # Initialize session by making a GET request
-        self.session.get(ENDPOINT_AUTH_SESSION)
+        try:
+            response = self.session.get(ENDPOINT_AUTH_SESSION, timeout=10)
+            self.auth_session = response.json() if response.ok else {}
+        except (ValueError, RequestException):
+            self.auth_session = {}
 
     def create_account(self, cookies):
         """
@@ -181,7 +190,7 @@ class Client:
         # Validate input parameters
         assert mode in SEARCH_MODES, "Invalid search mode."
         assert (
-            model in MODEL_MAPPINGS[mode] if self.own else model is None
+            model in self.model_mappings[mode] if self.own else model is None
         ), "Invalid model for the selected mode."
         assert all([source in SEARCH_SOURCES for source in sources]), "Invalid sources."
         assert (
@@ -254,7 +263,7 @@ class Client:
                 "language": language,
                 "last_backend_uuid": (follow_up["backend_uuid"] if follow_up else None),
                 "mode": "concise" if mode == "auto" else "copilot",
-                "model_preference": MODEL_MAPPINGS[mode][model],
+                "model_preference": self.model_mappings[mode][model],
                 "source": "default",
                 "sources": sources,
                 "version": "2.18",

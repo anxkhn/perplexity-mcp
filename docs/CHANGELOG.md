@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased] - 2026-10-02
+
+- Refresh the model catalog from Perplexity's current search, browser, and Computer pickers. Remove older and hidden model mappings.
+- Discover new picker IDs at startup and after 24 hours, with account-specific caching and a forced refresh through `perplexity_models`.
+- Detect Pro and Max subscriptions from the authenticated session. Default to GPT-6.1 Sol Thinking on Pro and GPT-6 Astra Thinking on Max.
+- Use explicit models for authenticated ask, search, and reasoning. Reject automatic routing and models above the account's subscription tier.
+- Allow per-call model selection and preserve an optional environment override.
+
 ## [Unreleased] - 2025-12-02
 
 ### Fixed

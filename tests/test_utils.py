@@ -23,14 +23,14 @@ def test_validate_search_params_requires_own_account() -> None:
     print("console.log -> validating search params requirements")
     validate_search_params("auto", None, ["web"], own_account=False)
     with pytest.raises(ValidationError):
-        validate_search_params("pro", "sonar", ["web"], own_account=False)
+        validate_search_params("pro", "gpt6_1_sol", ["web"], own_account=False)
 
 
 def test_validate_search_params_accepts_new_alias_and_backend_id() -> None:
     print("console.log -> validating new model aliases and backend ids")
-    validate_search_params("reasoning", "claude-5-sonnet-thinking", ["web"], own_account=True)
-    validate_search_params("reasoning", "claude50sonnetthinking", ["web"], own_account=True)
-    validate_search_params("reasoning", "gpt-5.6-sol-thinking", ["web"], own_account=True)
+    validate_search_params("reasoning", "claude-5.5-sonnet-thinking", ["web"], own_account=True)
+    validate_search_params("reasoning", "claude55sonnetthinking", ["web"], own_account=True)
+    validate_search_params("reasoning", "gpt-6.1-sol-thinking", ["web"], own_account=True)
     validate_search_params("pro", "kimi-k3", ["web"], own_account=True)
 
 

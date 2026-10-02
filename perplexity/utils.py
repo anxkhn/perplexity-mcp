@@ -137,7 +137,7 @@ def validate_search_params(
         ValidationError: If parameters are invalid
 
     Example:
-        >>> validate_search_params("pro", "gpt-4.5", ["web"], True)
+        >>> validate_search_params("pro", "gpt6_1_sol", ["web"], True)
     """
     # Validate mode
     if mode not in SEARCH_MODES:

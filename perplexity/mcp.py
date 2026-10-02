@@ -8,24 +8,27 @@ from mcp.server import MCPServer
 from perplexity import Client
 from perplexity.config import DEFAULT_REASONING_MODEL
 from perplexity.logger import setup_logger
+from perplexity.models import ModelRegistry
 
 logger = setup_logger("mcp")
 
 DEFAULT_MODE = os.environ.get("PERPLEXITY_MCP_MODE", "search")
 DEFAULT_MODEL = os.environ.get(
     "PERPLEXITY_REASON_MODEL",
-    os.environ.get("PERPLEXITY_MCP_MODEL", DEFAULT_REASONING_MODEL),
+    os.environ.get("PERPLEXITY_MCP_MODEL"),
 )
 
 mcp = MCPServer("perplexity", version=version("perplexity-mcp"))
 
 
-def perplexity_ask(query: str) -> str:
+def perplexity_ask(query: str, model: str | None = None) -> str:
     """Ask Perplexity a question and get a concise AI-generated answer.
 
     Uses Perplexity search by default when authenticated, and auto mode when
-    anonymous. This is the default general-purpose tool. Use it for factual
+    anonymous. Authenticated calls select an explicit model for your plan. Use it for factual
     questions, explanations, summaries, and most everyday queries.
+    An optional model ID overrides the configured model in Pro or reasoning mode.
+    Use perplexity_models to discover current IDs.
 
     Limitations:
     - Does not support follow-up context, file uploads, or source filtering.
@@ -33,7 +36,17 @@ def perplexity_ask(query: str) -> str:
     - Answers may not reflect the very latest real-time information.
     """
     if client.own:
-        return client.search(query, **resolve_default_search_kwargs()).get("answer", "")
+        models.refresh()
+        kwargs = resolve_default_search_kwargs()
+        if model is not None:
+            if kwargs["mode"] not in {"pro", "reasoning"}:
+                raise ValueError("Model selection requires Pro or reasoning mode")
+            kwargs["model"] = model
+        if kwargs["mode"] in {"pro", "reasoning"}:
+            kwargs["model"] = models.resolve_model(kwargs.get("model", DEFAULT_MODEL))
+        return client.search(query, **kwargs).get("answer", "")
+    if model is not None:
+        raise ValueError("Model selection requires authentication")
     return client.search(query, mode="auto").get("answer", "")
 
 
@@ -52,38 +65,62 @@ def perplexity_research(query: str) -> str:
     - Returns plain text only (no citations, images, or structured results).
     - Only one model is available in this mode (cannot select a specific model).
     """
+    models.refresh()
     return client.search(query, mode="deep research").get("answer", "")
 
 
-def perplexity_reason(query: str) -> str:
+def perplexity_reason(query: str, model: str | None = None) -> str:
     """Ask Perplexity to reason step-by-step through a complex problem.
 
     Uses Perplexity's reasoning mode, which applies chain-of-thought reasoning
     before producing an answer. Best for logic puzzles, math problems, multi-step
     analysis, coding questions, and decisions requiring structured thinking.
+    Defaults to GPT-6.1 Sol Thinking on Pro and GPT-6 Astra Thinking on Max.
+    PERPLEXITY_REASON_MODEL overrides the account-aware default.
+    Pass a model ID from perplexity_models to override it for one request.
 
     Limitations:
     - Slower than auto mode due to the reasoning step.
     - Does not support follow-up context, file uploads, or source filtering.
     - Returns plain text only (no citations, images, or structured results).
     """
-    return client.search(query, mode="reasoning", model=DEFAULT_MODEL).get("answer", "")
+    models.refresh()
+    selected = models.resolve_model(model if model is not None else DEFAULT_MODEL)
+    return client.search(query, mode="reasoning", model=selected).get("answer", "")
 
 
-def perplexity_search(query: str) -> str:
+def perplexity_search(query: str, model: str | None = None) -> str:
     """Search the web using Perplexity and get an AI-synthesized answer.
 
     Uses Perplexity's Pro mode with web sources, providing a more thorough
     web search than auto mode. This is the default authenticated path for
     unspecified MCP asks. Best for current events, recent developments, and
     queries where up-to-date web results are important.
+    Pass a model ID from perplexity_models to select a specific model.
+    Otherwise uses the explicit model selected for your subscription tier.
 
     Limitations:
     - Only searches the web (no academic/scholar or social sources).
     - Does not support follow-up context or file uploads.
     - Returns plain text only (no citations, images, or structured results).
     """
-    return client.search(query, mode="pro", sources=["web"]).get("answer", "")
+    models.refresh()
+    selected = models.resolve_model(model if model is not None else DEFAULT_MODEL)
+    return client.search(query, mode="pro", model=selected, sources=["web"]).get("answer", "")
+
+
+def perplexity_models(refresh: bool = False) -> dict:
+    """List current model IDs, picker choices, subscription tiers, and refresh status.
+
+    Models refresh automatically at startup and on the first call after 24 hours.
+    Set refresh=true to fetch the latest config immediately. Changes reports IDs
+    added, removed, or updated during the last successful refresh. Use search_config
+    to choose search/reasoning models; Computer models require a separate workflow.
+    available_search_models lists IDs allowed by your session's subscription tier.
+    Defaults follow the current picker, preferring GPT Sol on Pro and Astra on Max.
+    Explicit environment overrides stay pinned. Unknown plans cannot select models.
+    """
+    return models.list_models(DEFAULT_MODEL, refresh=refresh)
 
 
 def resolve_default_search_kwargs(mode: str = DEFAULT_MODE) -> dict:
@@ -100,11 +137,9 @@ def resolve_default_search_kwargs(mode: str = DEFAULT_MODE) -> dict:
         return {"mode": "deep research"}
 
     if normalized_mode == "auto":
-        return {"mode": "auto"}
+        raise ValueError("Authenticated MCP calls require an explicit model; auto is disabled")
 
-    raise ValueError(
-        "PERPLEXITY_MCP_MODE must be one of: search, pro, reasoning, deep research, auto"
-    )
+    raise ValueError("PERPLEXITY_MCP_MODE must be one of: search, pro, reasoning, deep research")
 
 
 def load_cookies_from_env() -> dict:
@@ -141,8 +176,8 @@ Environment:
   PERPLEXITY_SESSION_TOKEN  next-auth session token from perplexity.ai
   PERPLEXITY_CSRF_TOKEN     next-auth CSRF token from perplexity.ai
   PERPLEXITY_COOKIES        full cookie JSON (takes precedence over the above)
-  PERPLEXITY_MCP_MODE       search (default), reasoning, deep research, auto
-  PERPLEXITY_REASON_MODEL   model alias for perplexity_reason (default: {model})
+  PERPLEXITY_MCP_MODE       search (default), reasoning, deep research
+  PERPLEXITY_REASON_MODEL   explicit model override (Pro default: {model}; Max: Astra Thinking)
   MCP_TRANSPORT             stdio (default) or http
   MCP_HOST                  HTTP bind host (default: 127.0.0.1)
   MCP_PORT                  HTTP bind port (default: 8000)
@@ -150,7 +185,7 @@ Environment:
 
 
 def main():
-    global client
+    global client, models
 
     if "--help" in sys.argv[1:] or "-h" in sys.argv[1:]:
         print(USAGE, end="")
@@ -165,10 +200,13 @@ def main():
     mcp.tool()(perplexity_ask)
 
     if client.own:
-        logger.info("Authenticated - all 4 tools available.")
+        models = ModelRegistry(client)
+        models.refresh()
+        logger.info("Authenticated - all 5 tools available.")
         mcp.tool()(perplexity_research)
         mcp.tool()(perplexity_reason)
         mcp.tool()(perplexity_search)
+        mcp.tool()(perplexity_models)
     else:
         logger.warning(
             "No PERPLEXITY_COOKIES set - running anonymously. "
