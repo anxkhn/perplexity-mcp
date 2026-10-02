@@ -21,14 +21,14 @@ This is an unofficial client for Perplexity's website endpoints. Your subscripti
 
 You need [uv](https://docs.astral.sh/uv/getting-started/installation/) and Python 3.10 or newer. uv can install the Python version for you.
 
-Install the current model-discovery branch:
+Install from GitHub:
 
 ```bash
-uv tool install --python 3.12 "git+https://github.com/anxkhn/perplexity-mcp.git@refresh-picker-models"
+uv tool install --python 3.12 "git+https://github.com/anxkhn/perplexity-mcp.git"
 perplexity-mcp --version
 ```
 
-The branch contains the account-aware selection and refresh features described here. Once merged, use the repository's default branch by removing `@refresh-picker-models`. This project installs directly from GitHub; these instructions do not assume a PyPI release.
+This installs the repository's default branch. These instructions do not assume a PyPI release.
 
 If your shell cannot find `perplexity-mcp`, run `uv tool update-shell` and reopen the terminal.
 
@@ -38,7 +38,7 @@ If your shell cannot find `perplexity-mcp`, run `uv tool update-shell` and reope
 Run from GitHub in uv's cached tool environment:
 
 ```bash
-uvx --python 3.12 --from "git+https://github.com/anxkhn/perplexity-mcp.git@refresh-picker-models" perplexity-mcp --help
+uvx --python 3.12 --from "git+https://github.com/anxkhn/perplexity-mcp.git" perplexity-mcp --help
 ```
 
 From a local checkout:
