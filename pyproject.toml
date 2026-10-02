@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "perplexity-mcp"
-version = "0.3.0"
+version = "0.3.1"
 description = "Perplexity MCP server for coding agents using web auth cookies instead of API keys"
 readme = "README.md"
 requires-python = ">=3.10"

@@ -42,7 +42,7 @@ print(f"File uploads available: {client.file_upload}")
 response = client.search(
     'Complex query here',
     mode='pro',  # or 'reasoning', 'deep research'
-    model='gpt-4.5'
+    model='gpt6_1_sol_thinking'
 )
         """)
         print("-" * 60)
